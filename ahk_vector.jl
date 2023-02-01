@@ -1,11 +1,17 @@
 using Polymake
 using Oscar
 using DataFrames
+using Plots
+using CSV
 
 E=[1:6...]
 C = [[1, 2, 3],[1, 2, 4],[1, 3, 4],[1, 5, 6],[2, 3, 4],[2, 3, 5, 6],[2, 4, 5, 6],[3, 4, 5, 6]]
 M = matroid_from_circuits(C,E)
 #Functions to calculate the vector of differencens
+cyclic_flats(M,2)
+flats(M)
+
+
 
 function log_distance(v::Vector)
     return [ i==1 || i==length(v) ? x^2 : x^2-v[i-1]*v[i+1] for (i,x) in enumerate(v)]
@@ -16,10 +22,9 @@ function AHK_vector(M::Matroid)
     return log_distance(v)
 end
 
-function reduced_AHK_vector(M::Matroid)
-    v=Int.([coefficients(reduced_characteristic_polynomial(M))...])
-    return log_distance(v)
-end
+
+AHK_vector(M)
+
 
 #Example to follow
 Ms = [M,fano_matroid()]
@@ -30,31 +35,33 @@ argmax.(AHK_vector.(Ms))
 flats.(Ms)
 
 
-#Count the amount of flats->specific rank
-flat_ranks(Mat)=map(f->rank(Mat,f),flats(Mat))
-n_flats_by_rank(Mat)=map(j->count(x->(x==j),flat_ranks(Mat)),1:rank(Mat,matroid_groundset(Mat)))
-n_flats_by_rank.(Ms)
+function n_flats_by_rank(Mat)
+    rk=zeros(rank(Mat)+1)
+    foreach(f->rk[rank(Mat,f)+1]+=1,flats(Mat))
+    popfirst!(rk)
+    return Int.(rk)
+end
 
+n_flats_by_rank(fano_matroid())
 
-min.([1,3],[2,2])
+##Old Version
+##cyclicflat_ranks(Mat)=map(f->rank(Mat,f),cyclic_flats(Mat))
+##n_cyclicflats_by_rank(Mat)=map(j->count(x->(x==j),cyclicflat_ranks(Mat)),1:rank(Mat,matroid_groundset(Mat)))
+##n_cyclicflats_by_rank.(Ms)
 
-minimum.(AHK_vector.(Ms)) 
-reduce(min,AHK_vector.(Ms))
-reduce(max,AHK_vector.(Ms))
 
 ##Calculate Info
-function info(M)
-    ahk=AHK_vector(M)
-    return [n_flats_by_rank(M),ahk,maximum(ahk)]
+function info(Mat)
+    coeff=Int.(coefficients(characteristic_polynomial(Mat)))
+    return (n_connected_components(Mat),n_flats_by_rank(Mat),coeff,log_distance(coeff))
 end
 info(M)
 
-infos(Mats) = (info.(Mats),reduce(min,AHK_vector.(Mats)),reduce(max,AHK_vector.(Mats)))
 I=info.(Ms)
 
 
 function infodf(Mats)
-    df=DataFrame(flatsByRank=[],ahk=[],maxOfAhk=[])
+    df=DataFrame(cyclicflatByranks=[],flatsByRank=[],ahk=[],maxOfAhk=[])
     foreach(x->push!(df,x),info.(Mats))
     return df
 end
@@ -66,64 +73,70 @@ infodf(Ms)
 db = Polymake.Polydb.get_db()
 collection = db["Matroids.Small"]
 
-#query =  Dict("PAVING" => true,"N_CIRCUITS" => Dict("\$lt" => 10))
-#res=Polymake.Polydb.find(collection,  query; opts=Dict("limit"=>10))
-#get_Info(res)
 
-
-
-cursor=Polymake.Polydb.find(collection, Dict("RANK" => 4,"SIMPLE"=>true,"N_ELEMENTS"=>9); opts=Dict("limit"=>100))
+cursor=Polymake.Polydb.find(collection, Dict("RANK" => 4,"SIMPLE"=>true,"N_ELEMENTS"=>9))
 Droids=Matroid.(cursor)
 
-infodf(Droids)
 
+#i=0
+#Droids=[]
+#GC.enable_logging(true)
+#for M in cursor
+#    push!(Droids,info(Matroid(M))) 
+#    if i%1000==0
+#        println("I am at ",i)
+#        GC.gc()
+#    end
+#    i+=1
+#end
+
+
+#Droids = map(M->info(Matroid(M)),cursor)
+#save("r4n9_Matroids",Droids)
+#fournine=infodf(Droids)
+
+
+
+length(Droids)
+
+#Lax Matroid, Paper: 
 #min at every element
+#ToDo fix all ranks except one.
+#ToDo is the ahk_vector log concave?
 
-
-mincoeffs=reduce(min,AHK_vector.(Droids))
-maxcoeffs=reduce(max,AHK_vector.(Droids))
-
-min_i=map(i->findfirst(M->mincoeffs[i]==AHK_vector(M)[i],Droids),1:4)
-max_i=map(i->findfirst(M->maxcoeffs[i]==AHK_vector(M)[i],Droids),1:4)
+#asd=load("r4n9_Matroids")
 
 
 
-minMatroid=Droids[61]
-info(minMatroid)
 
-maxMatroid=Droids[87]
-info(maxMatroid)
+##This is broken fix it!!! mincoeffs=reduce(min,AHK_vector.(Droids))
+#maxcoeffs=reduce.(max,AHK_vector.(Droids))
+#
+#min_i=map(i->findfirst(M->mincoeffs[i]==AHK_vector(M)[i],Droids),1:3)
+#max_i=map(i->findfirst(M->maxcoeffs[i]==AHK_vector(M)[i],Droids),1:4)
+#
 
 
 
-Polymake.Polydb.get_fields(collection)
+
+#ToDo check out regular and binary, sparce paving, to all!!
+#Polymake.Polydb.get_fields(collection)
 ##Function wrapper
-function getMinMaxMatroid(eles=9,r=4,n=100)
-    cursor=Polymake.Polydb.find(collection, Dict("RANK" => r,"SIMPLE"=>true,"N_ELEMENTS"=>eles); opts=Dict("limit"=>n))
-    Droids=Matroid.(cursor)
-    println(length(Droids))
-    mincoeffs=reduce(min,AHK_vector.(Droids))
-    maxcoeffs=reduce(max,AHK_vector.(Droids))
-    println("max/min Coefficients:",maxcoeffs,mincoeffs)
 
 
-    min_i=map(i->findfirst(M->mincoeffs[i]==AHK_vector(M)[i],Droids),1:r)
-    max_i=map(i->findfirst(M->maxcoeffs[i]==AHK_vector(M)[i],Droids),1:r)
+#ToDo Sort teh Droids Array by Size of n-th coefficients
+#
+##Calculate Deltas of the coefficients How fat do they change? what influences this?
+#Is this always the same?
+#
 
-    println("Indices of min/max Matroid",min_i,max_i)
-
-    minMatroid=Droids[min_i[1]]
-    println("info minMatroid:",info(minMatroid))
-
-    maxMatroid=Droids[max_i[1]]
-    println("info maxMatroid:",info(maxMatroid))
-    return (maxMatroid,minMatroid)
+function getAhkElement(n)
+    return f(Mat) = AHK_vector(Mat)[n]
 end
 
-
-getMinMaxMatroid(9,4,10000)
-
-
+f=getAhkElement(1)
+f.(Ms)
 
 
+#asd= plot(sortArr2,seriestype=:scatter,fmt = :svg)
 
