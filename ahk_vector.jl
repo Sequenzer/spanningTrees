@@ -22,7 +22,12 @@ function AHK_vector(M::Matroid)
     return log_distance(v)
 end
 
+function reduced_AHK_vector(M::Matroid)
+    v=Int.([coefficients(reducded_characteristic_polynomial(M))...])
+    return log_distance(v)
+end
 
+# 
 AHK_vector(M)
 
 
