@@ -1,26 +1,13 @@
 application "matroid";
 
-$m=uniform_matroid(2,3);
+$m=uniform_matroid(3,4);
 $l=$m->LATTICE_OF_FLATS;
-
+print $l->FACES;
 ##Compute all the non trivial Faces
 @s = $l->FACES;
 print new Set(1..$m->N_ELEMENTS);
 
-foreach my $flat (@{$s[0]}) {
-    if ($flat == new Set()||$flat == new Set(0..$m->N_ELEMENTS-1)){
-        print "A trivial flat is: ", $flat,"\n";
-    } else {
-        print "A true flat is: ", $flat, "\n";
-    } 
-};
-
-print $l->FACES->
-
-@x = (1..12);
-shift @x; pop @x;
-print @x;
-
+$p = tropical::matroid_polytope<Min>($m);
 
 
 $f=tropical::matroid_fan<Min>($m);
@@ -29,14 +16,13 @@ ref($f);
 @mat = $f->PROJECTIVE_VERTICES;
 print $mat[0][0]; ##top row
 print $mat[0][0][0]; ##top left element
-print transpose(@mat)[0][0]; ##left most column
 
 #Alternative
 $mat1 = $f->PROJECTIVE_VERTICES;
 print $mat1->elem(1,1); ##second row second column
 
 print ref($mat[0][0]);
-print $mat[0];
+print $mat[0];uuu
 #Define e_0
 $e0 = 0;
 $F_e0 = new Set(0); 
@@ -107,14 +93,29 @@ sub w {
 }
 
 
-
-print $m->LATTICE_OF_FLATS->FACES;
-print innerProduct(1,2,1);
-print new Set(1,2) * new Set(2,3);
-print ((new Set(1,2) * new Set(2,3))->size) ;
+##Plan Take maximal Polytopes, get first two vertices out of PROJECTIVE VERTICES "the last one is unnecesary"
 
 
-print (new Set(1,2)->contains(1));
+@max_polys = @{$f->MAXIMAL_POLYTOPES};
+@proj_vert = @{$f->PROJECTIVE_VERTICES};
+
+print $proj_vert[1];
+print $max_polys[0];
+
+$u_1 = $proj_vert[$max_polys[0][0]];
+$u_2 = $proj_vert[$max_polys[0][1]];
+
+print $u_1,"\n",$u_2;
 
 
-$$$$
+#Create w_alpha
+#Calculate |F_k^C| is size of groundset = 4 minus sice of Flat = 2 => 4-2 = 2
+
+
+$w_alpha =  1/2*($u_1+$u_2);
+
+@array = [];
+push(@array,($u_1,$u_2,$w_alpha));
+
+$nc = new fan::PolyhedralComplex(POINTS=>[$u_1,$u_2,$w_alpha],INPUT_POLYTOPES=>[[0,1,2]]);
+
