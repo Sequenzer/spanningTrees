@@ -1,13 +1,19 @@
 using Oscar
 using Plots
 using DataFrames
+using DataStructures
 
-Droids=load("r4n9_Matroids.bak")
+Droids=load("r4n9_Matroids.bak");
+#Connected Components, independent Sets, char poly coefs, ahk-vector.
+
+
+
+
 
 max_ahk(D)=D[4][2]
 bin=max_ahk.(Droids)
 
-
+length(Droids[1][4])
 
 n=100
 testDroids=Droids[1:n]
@@ -15,14 +21,14 @@ x1=collect(1:n)
 bar(max_ahk.(testDroids),x1)
 
 function n_Matroids_by_max_ahk(Droids)
-    count=zeros(maximum(bin))
-    foreach(D->count[max_ahk(D)]+=1,Droids)
-    return filter(x->x[2]!==0 ,[enumerate(Int.(count))...])
+    sol = [DefaultDict{Int,Int}(0) for _ in Droids[1][4]]
+    foreach(Matroid->foreach(i->sol[i][Matroid[4][i]]+=1,eachindex(Matroid[4])),Droids)
+    return sol
 end
 
 
 bins=n_Matroids_by_max_ahk(Droids)
-bar(bins)
+bar(bins[3])
 
 #largest normal distribution = Largest bin = 3820
 #second largest distribution = 
